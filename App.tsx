@@ -1,3 +1,4 @@
+// TH1 | 23691031 | NGUYEN MINH KHANG | #542765
 import React from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider } from '@contexts/ThemeContext';

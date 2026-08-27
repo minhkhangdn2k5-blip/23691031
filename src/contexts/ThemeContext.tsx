@@ -1,4 +1,4 @@
-import React, { createContext, useState, useCallback, useMemo, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, useMemo, ReactNode } from 'react';
 import { LIGHT_COLORS, DARK_COLORS, ThemeColors } from '@constants/theme';
 
 export type ThemeMode = 'light' | 'dark';
@@ -45,3 +45,17 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 };
+
+/**
+ * Hook useTheme
+ * Gọi ngoài Provider sẽ quăng lỗi (throw Error) theo đúng yêu cầu đề thi
+ */
+export function useTheme(): ThemeContextType {
+  const context = useContext(ThemeContext);
+  if (!context) {
+    throw new Error('Lỗi: useTheme phải được sử dụng bên trong <ThemeProvider>');
+  }
+  return context;
+}
+
+export default ThemeContext;

@@ -1,48 +1,77 @@
 /**
- * Hệ thống Theme Tokens cho ứng dụng ShopAI
- * Chuẩn hóa màu sắc Light/Dark, khoảng cách Spacing và kiểu chữ Typography
+ * Hệ thống Theme Tokens cho ứng dụng CampusMart
+ * Tuân thủ chính xác 100% bảng màu và quy định phòng thi
  */
 
-// Bảng màu giao diện Sáng (Light Mode)
+export const COLORS = {
+  // Light mode colors
+  primary: '#0F766E',        // Nút chính, chữ CAMPUSMART, chip đang chọn, giá
+  secondary: '#F59E0B',      // Chữ Flash
+  background: '#F0FDFA',     // Nền màn sáng
+  surface: '#FFFFFF',        // Card, ô tìm, Modal
+  card: '#FFFFFF',           // Card item
+  text: '#134E4A',           // Chữ thường
+  textLight: '#5F7A77',      // Chữ phụ, placeholder
+  border: '#CCFBF1',         // Viền
+  error: '#DC2626',          // Báo lỗi
+  success: '#16A34A',        // Thành công
+
+  // Dark mode colors
+  dark: {
+    primary: '#0F766E',      // Không đổi primary
+    secondary: '#F59E0B',
+    background: '#042F2E',   // Nền màn tối
+    surface: '#0B4F4A',      // Card, ô tìm, Modal tối
+    card: '#0B4F4A',
+    text: '#F0FDFA',         // Chữ sáng
+    textLight: '#A7F3D0',    // Chữ phụ tối
+    border: '#115E59',       // Viền tối
+    error: '#DC2626',
+    success: '#16A34A',
+  },
+};
+
 export const LIGHT_COLORS = {
-  primary: '#FF4D4F',          // Đỏ cam chủ đạo ShopAI
-  primaryDark: '#D9363E',      // Đỏ đậm khi nhấn nút
-  primaryLight: '#FFECEC',     // Đỏ nhạt nền mờ
-  background: '#F5F5F5',       // Nền tổng thể màn hình
-  surface: '#FFFFFF',          // Nền thẻ card, header
-  card: '#FFFFFF',             // Nền thẻ sản phẩm
-  text: '#2C3E50',             // Màu chữ chính
-  textSecondary: '#7F8C8D',    // Màu chữ phụ / mô tả
-  textMuted: '#95A5A6',        // Màu placeholder / gợi ý
-  border: '#E8E8E8',           // Màu đường viền / phân cách
-  inputBackground: '#FFFFFF',  // Nền ô nhập liệu
-  error: '#FF4D4F',            // Màu báo lỗi
-  success: '#52C41A',          // Màu thành công
-  warning: '#FAAD14',          // Màu cảnh báo
+  primary: '#0F766E',
+  secondary: '#F59E0B',
+  background: '#F0FDFA',
+  surface: '#FFFFFF',
+  card: '#FFFFFF',
+  text: '#134E4A',
+  textLight: '#5F7A77',
+  border: '#CCFBF1',
+  error: '#DC2626',
+  success: '#16A34A',
 };
 
-// Bảng màu giao diện Tối (Dark Mode)
 export const DARK_COLORS = {
-  primary: '#FF4D4F',          // Đỏ cam chủ đạo ShopAI
-  primaryDark: '#D9363E',      // Đỏ đậm khi nhấn nút
-  primaryLight: '#3A1E1E',     // Đỏ tối nền mờ
-  background: '#121212',       // Nền tổng thể tối sâu
-  surface: '#1E1E1E',          // Nền thẻ card, header tối
-  card: '#1E1E1E',             // Nền thẻ sản phẩm tối
-  text: '#F5F5F5',             // Màu chữ chính sáng
-  textSecondary: '#A0A0A0',    // Màu chữ phụ sáng vừa
-  textMuted: '#666666',        // Màu placeholder / gợi ý tối
-  border: '#2C2C2C',           // Màu đường viền tối
-  inputBackground: '#1E1E1E',  // Nền ô nhập liệu tối
-  error: '#FF4D4F',            // Màu báo lỗi
-  success: '#49AA19',          // Màu thành công
-  warning: '#D89614',          // Màu cảnh báo
+  primary: '#0F766E',
+  secondary: '#F59E0B',
+  background: '#042F2E',
+  surface: '#0B4F4A',
+  card: '#0B4F4A',
+  text: '#F0FDFA',
+  textLight: '#A7F3D0',
+  border: '#115E59',
+  error: '#DC2626',
+  success: '#16A34A',
 };
 
-// Kiểu dữ liệu màu sắc đồng nhất
 export type ThemeColors = typeof LIGHT_COLORS;
 
-// Quy chuẩn khoảng cách Spacing (đơn vị: dp/pt)
+export const SIZES = {
+  xs: 4,
+  sm: 8,
+  md: 16,
+  lg: 24,
+  xl: 32,
+  xxl: 40,
+  radiusSm: 6,
+  radiusMd: 10,
+  radiusLg: 14,
+  radiusFull: 9999,
+};
+
 export const SPACING = {
   xs: 4,
   sm: 8,
@@ -52,7 +81,6 @@ export const SPACING = {
   xxl: 40,
 };
 
-// Quy chuẩn bo góc viền (Border Radius)
 export const BORDER_RADIUS = {
   sm: 6,
   md: 10,
@@ -61,37 +89,36 @@ export const BORDER_RADIUS = {
   full: 9999,
 };
 
-// Quy chuẩn kích thước chữ và độ đậm (Typography)
-export const TYPOGRAPHY = {
+export const FONTS = {
   h1: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: '800' as const,
-    lineHeight: 34,
+    lineHeight: 30,
   },
   h2: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '700' as const,
-    lineHeight: 28,
+    lineHeight: 26,
   },
   h3: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '700' as const,
-    lineHeight: 24,
+    lineHeight: 22,
   },
   body: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '400' as const,
-    lineHeight: 22,
+    lineHeight: 20,
   },
   bodyBold: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700' as const,
-    lineHeight: 22,
+    lineHeight: 20,
   },
   caption: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '400' as const,
-    lineHeight: 18,
+    lineHeight: 16,
   },
   price: {
     fontSize: 16,
@@ -99,3 +126,6 @@ export const TYPOGRAPHY = {
     lineHeight: 22,
   },
 };
+
+export const TYPOGRAPHY = FONTS;
+export type TypographyVariant = keyof typeof FONTS;

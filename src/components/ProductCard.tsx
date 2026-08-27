@@ -1,205 +1,87 @@
-import React, { memo, useEffect } from 'react';
-import {
-  View,
-  Image,
-  StyleSheet,
-  Dimensions,
-  Pressable,
-} from 'react-native';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-} from 'react-native-reanimated';
-import { Product } from '@data/mockProducts';
+import React, { memo } from 'react';
+import { View, Image, StyleSheet } from 'react-native';
+import { ProductItem } from '@services/productApi';
 import { useTheme } from '@hooks/useTheme';
 import { SPACING, BORDER_RADIUS } from '@constants/theme';
-import { AppText, AppButton } from '@components/ui';
-
-// Tính toán kích thước thẻ phù hợp với lưới 2 cột
-const { width } = Dimensions.get('window');
-const HORIZONTAL_PADDING = SPACING.md;
-const ITEM_GAP = SPACING.sm;
-const CARD_WIDTH = (width - HORIZONTAL_PADDING * 2 - ITEM_GAP) / 2;
+import { Typography, ShopButton } from '@components/ui';
 
 export interface ProductCardProps {
-  product: Product;
-  onPress?: (product: Product) => void;
-  onBuy?: (product: Product) => void;
+  item: ProductItem;
+  onOrder: (item: ProductItem) => void;
+  disabled?: boolean;
 }
 
-/**
- * Linh kiện Thẻ sản phẩm (ProductCard)
- * - Tối ưu hiển thị theo Lưới 2 cột
- * - Hiệu ứng Reanimated Fade-in chạy trực tiếp trên Native UI Thread
- * - Hỗ trợ Dark/Light Mode tự động
- * - Tái sử dụng AppText và AppButton từ Design System
- */
-const ProductCard: React.FC<ProductCardProps> = ({
-  product,
-  onPress,
-  onBuy,
+export const ProductCard: React.FC<ProductCardProps> = memo(({
+  item,
+  onOrder,
+  disabled = false,
 }) => {
-  const { colors, isDark } = useTheme();
-
-  // 1. REANIMATED: Shared Value lưu độ mờ opacity trên UI Thread
-  const opacity = useSharedValue(0);
-
-  useEffect(() => {
-    // Kích hoạt hiệu ứng Fade-in trong 350ms (không gây re-render React)
-    opacity.value = withTiming(1, { duration: 350 });
-  }, [opacity]);
-
-  // 2. Animated Style ánh xạ độ mờ vào khung nhìn
-  const animatedCardStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-  }));
-
-  // Hàm định dạng tiền tệ VND
-  const formattedPrice = new Intl.NumberFormat('vi-VN', {
-    style: 'currency',
-    currency: 'VND',
-  }).format(product.price);
+  const { colors } = useTheme();
 
   return (
-    <Animated.View
-      style={[
-        styles.cardContainer,
-        {
-          backgroundColor: colors.card,
-          borderColor: colors.border,
-          borderWidth: isDark ? 1 : 0,
-        },
-        animatedCardStyle,
-      ]}
-    >
-      <Pressable
-        onPress={() => onPress && onPress(product)}
-        style={({ pressed }) => [pressed && styles.cardPressed]}
-      >
-        {/* 1. Ảnh sản phẩm */}
-        <View style={styles.imageWrapper}>
-          <Image
-            source={{ uri: product.image }}
-            style={styles.image}
-            resizeMode="cover"
-          />
-          {product.category && (
-            <View style={[styles.categoryBadge, { backgroundColor: colors.surface }]}>
-              <AppText variant="caption" style={styles.categoryText}>
-                {product.category}
-              </AppText>
-            </View>
-          )}
-        </View>
+    <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+      <Image
+        source={{ uri: item.image }}
+        style={styles.image}
+        resizeMode="contain"
+      />
 
-        {/* 2. Phần thông tin chi tiết */}
-        <View style={styles.infoContainer}>
-          {/* Tên sản phẩm cố định 2 dòng */}
-          <AppText
-            variant="body"
-            numberOfLines={2}
-            style={styles.productName}
-          >
-            {product.name}
-          </AppText>
+      <View style={styles.info}>
+        <Typography variant="bodyBold" numberOfLines={1} style={styles.name}>
+          {item.name}
+        </Typography>
+        <Typography variant="price" color={colors.primary} style={styles.price}>
+          {item.formattedPrice}
+        </Typography>
+        <Typography variant="caption" color={colors.textLight}>
+          {item.categoryName}
+        </Typography>
+      </View>
 
-          {/* Đánh giá & đã bán */}
-          <View style={styles.ratingRow}>
-            <AppText variant="caption" style={styles.ratingText}>
-              ⭐ {product.rating || '4.8'}
-            </AppText>
-            <AppText variant="caption" color={colors.textSecondary}>
-              Đã bán {product.soldCount || 100}+
-            </AppText>
-          </View>
-
-          {/* Giá tiền */}
-          <AppText variant="price" color={colors.primary} style={styles.price}>
-            {formattedPrice}
-          </AppText>
-
-          {/* Nút bấm mua ngay */}
-          <AppButton
-            title="Mua ngay"
-            size="sm"
-            variant="primary"
-            onPress={() => onBuy ? onBuy(product) : (onPress && onPress(product))}
-            style={styles.buyButton}
-          />
-        </View>
-      </Pressable>
-    </Animated.View>
+      <ShopButton
+        title="Đặt"
+        variant="primary"
+        disabled={disabled}
+        onPress={() => onOrder(item)}
+        style={styles.button}
+      />
+    </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
-  cardContainer: {
-    width: CARD_WIDTH,
-    borderRadius: BORDER_RADIUS.md,
-    overflow: 'hidden',
-    marginBottom: ITEM_GAP + SPACING.xs,
-    // Đổ bóng nhẹ
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  cardPressed: {
-    opacity: 0.9,
-  },
-  imageWrapper: {
-    width: '100%',
-    height: CARD_WIDTH,
-    backgroundColor: '#EAEAEA',
-    position: 'relative',
-  },
-  image: {
-    width: '100%',
-    height: '100%',
-  },
-  categoryBadge: {
-    position: 'absolute',
-    top: 6,
-    left: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    opacity: 0.9,
-  },
-  categoryText: {
-    fontSize: 10,
-    fontWeight: '600',
-  },
-  infoContainer: {
-    padding: SPACING.sm,
-  },
-  productName: {
-    fontSize: 13,
-    fontWeight: '600',
-    height: 36,
-    lineHeight: 18,
-  },
-  ratingRow: {
+  card: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 4,
-    marginBottom: 4,
+    marginHorizontal: SPACING.md,
+    marginBottom: SPACING.sm,
+    padding: SPACING.sm,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
   },
-  ratingText: {
-    fontSize: 11,
-    fontWeight: '700',
+  image: {
+    width: 64,
+    height: 64,
+    borderRadius: BORDER_RADIUS.sm,
+    backgroundColor: '#FFFFFF',
+  },
+  info: {
+    flex: 1,
+    marginLeft: SPACING.sm,
+    marginRight: SPACING.xs,
+  },
+  name: {
+    fontSize: 14,
+    marginBottom: 2,
   },
   price: {
     fontSize: 15,
-    marginBottom: 8,
+    marginBottom: 2,
   },
-  buyButton: {
-    height: 34,
-    paddingVertical: 6,
+  button: {
+    height: 36,
+    paddingHorizontal: 16,
   },
 });
 
-export default memo(ProductCard);
+export default ProductCard;
