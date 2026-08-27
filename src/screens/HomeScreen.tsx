@@ -116,7 +116,7 @@ const HomeScreen: React.FC = () => {
   const { colors, isDark, toggleTheme } = useTheme();
   const { formattedTime, isExpired } = useCountdown(FLASH_SECONDS);
 
-  // States quản lý dữ liệu và mạng (Câu 2b)
+  // States dữ liệu sản phẩm và trạng thái mạng
   const [products, setProducts] = useState<ProductItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
