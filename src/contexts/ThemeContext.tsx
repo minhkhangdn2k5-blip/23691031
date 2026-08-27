@@ -48,7 +48,6 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
 /**
  * Hook useTheme
- * Gọi ngoài Provider sẽ quăng lỗi (throw Error) theo đúng yêu cầu đề thi
  */
 export function useTheme(): ThemeContextType {
   const context = useContext(ThemeContext);

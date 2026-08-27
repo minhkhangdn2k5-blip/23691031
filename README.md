@@ -16,7 +16,7 @@ Ký túc xá có cửa hàng tiện lợi mở 24/7 tên **CampusMart**. Sinh vi
 - Không ship, không thanh toán trong app, không làm giỏ hàng nhiều món.
 - Một màn hình chính (`HomeScreen.tsx`) hiển thị danh sách mặt hàng dạng danh sách dọc 1 cột.
 - Một hộp thoại (`Modal`) xác nhận đặt món khi bấm **Đặt**.
-- Tuân thủ 100% quy định phòng thi: React Native CLI + TypeScript, Style bằng `StyleSheet.create`, Design System chuẩn, dùng `FlatList` chuẩn, không Navigation ngoài phạm vi.
+- Xây dựng bằng React Native CLI + TypeScript, Style bằng `StyleSheet.create`, Design System chuẩn, dùng `FlatList` 1 cột dọc.
 
 ---
 

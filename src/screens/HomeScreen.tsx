@@ -18,10 +18,7 @@ import { fetchProducts, ProductItem, CategoryId } from '@services/productApi';
 import { SPACING, BORDER_RADIUS } from '@constants/theme';
 import { Typography, ShopInput, ShopButton } from '@components/ui';
 
-// ==========================================
-// 1. REDUCER CHO BỘ ĐẾM SỐ LƯỢNG (CÂU 3a)
-// Bắt buộc dùng useReducer (ADD / REMOVE), cấm dùng useState
-// ==========================================
+// Reducer quản lý số lượng đặt món
 type QuantityAction = { type: 'ADD' } | { type: 'REMOVE' } | { type: 'RESET' };
 
 function quantityReducer(state: number, action: QuantityAction): number {
@@ -29,7 +26,6 @@ function quantityReducer(state: number, action: QuantityAction): number {
     case 'ADD':
       return state + 1;
     case 'REMOVE':
-      // Bấm trừ khi đang 1 thì vẫn là 1 (không cho âm hoặc về 0)
       return state > 1 ? state - 1 : 1;
     case 'RESET':
       return 1;
@@ -38,7 +34,7 @@ function quantityReducer(state: number, action: QuantityAction): number {
   }
 }
 
-// Danh sách danh mục chuẩn theo đề thi
+// Danh mục sản phẩm
 const CHIPS_DEFAULT: { id: CategoryId; label: string }[] = [
   { id: 'all', label: 'Tất cả' },
   { id: 'food', label: 'Đồ ăn' },
@@ -322,7 +318,7 @@ const HomeScreen: React.FC = () => {
         })}
       </View>
 
-      {/* 3 CẢNH MẠNG (Câu 2b): Loading / List / Error */}
+      {/* Trạng thái mạng: Loading / Error / Danh sách */}
       {loading ? (
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
@@ -346,7 +342,7 @@ const HomeScreen: React.FC = () => {
           />
         </View>
       ) : (
-        /* Khối (E): FlatList món 1 cột dọc chuẩn */
+        /* Danh sách sản phẩm 1 cột */
         <FlatList
           data={filteredProducts}
           keyExtractor={item => `${STUDENT.mssv}-${item.id}`}
@@ -371,12 +367,10 @@ const HomeScreen: React.FC = () => {
         />
       )}
 
-      {/* (0) Watermark ở DƯỚI CHÂN màn hình nếu số cuối lẻ (Số cuối = 1) */}
+      {/* Watermark ở chân màn hình */}
       {!VARIANT.watermarkAtTop && <StudentWatermark />}
 
-      {/* ========================================== */}
-      {/* GIAO DIỆN 2: MODAL ĐẶT MÓN (CÂU 3a)         */}
-      {/* ========================================== */}
+      {/* Modal chi tiết đặt món */}
       <Modal
         visible={!!selectedProduct}
         transparent={true}

@@ -23,12 +23,7 @@ interface FakeStoreProduct {
 }
 
 /**
- * Gọi GET https://fakestoreapi.com/products?limit=8 bằng fetch, kiểm tra res.ok.
- * Tuân thủ chính xác 100% từng câu chữ trong đề thi:
- * • title → tên món
- * • giá = Math.round(price * PRICE_MULTIPLIER)
- * • image → ảnh dòng list và ảnh Modal
- * • chuỗi clothing → loại Học tập; jewel → Nước; còn lại → Đồ ăn
+ * Gọi API lấy danh sách sản phẩm và ánh xạ dữ liệu cho CampusMart
  */
 export async function fetchProducts(): Promise<ProductItem[]> {
   const controller = new AbortController();
@@ -48,8 +43,7 @@ export async function fetchProducts(): Promise<ProductItem[]> {
     const rawData: FakeStoreProduct[] = await response.json();
 
     return rawData.map(item => {
-      // 1. Phân loại danh mục CHUẨN 100% theo quy định đề thi:
-      // chuỗi clothing → loại Học tập; jewel → Nước; còn lại → Đồ ăn
+      // Phân loại danh mục sản phẩm
       const rawCategory = (item.category || '').toLowerCase();
       let category: CategoryId = 'food';
       let categoryName = 'Đồ ăn';

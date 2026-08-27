@@ -1,6 +1,5 @@
 /**
  * Hệ thống Theme Tokens cho ứng dụng CampusMart
- * Tuân thủ chính xác 100% bảng màu và quy định phòng thi
  */
 
 export const COLORS = {
