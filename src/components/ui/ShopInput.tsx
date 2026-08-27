@@ -29,7 +29,7 @@ export const ShopInput: React.FC<ShopInputProps> = memo(({
   placeholder,
   ...rest
 }) => {
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
 
   return (
     <View style={[styles.container, containerStyle]}>
@@ -86,9 +86,9 @@ const styles = StyleSheet.create({
   },
   inputWrapper: {
     borderWidth: 1.5,
-    borderRadius: BORDER_RADIUS.md,
+    borderRadius: BORDER_RADIUS.full,
     paddingHorizontal: SPACING.md,
-    height: 46,
+    height: 44,
     justifyContent: 'center',
   },
   input: {

@@ -91,8 +91,8 @@ export const ShopButton: React.FC<ShopButtonProps> = memo(({
 
 const styles = StyleSheet.create({
   button: {
-    height: 44,
-    borderRadius: BORDER_RADIUS.md,
+    height: 40,
+    borderRadius: BORDER_RADIUS.full,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: SPACING.md,
