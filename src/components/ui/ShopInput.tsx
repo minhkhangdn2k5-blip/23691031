@@ -2,13 +2,13 @@ import React, { memo } from 'react';
 import {
   View,
   TextInput,
-  TextInputProps,
   StyleSheet,
+  TextInputProps,
   ViewStyle,
 } from 'react-native';
-import { useTheme } from '@hooks/useTheme';
-import { SPACING, BORDER_RADIUS } from '@constants/theme';
 import Typography from './Typography';
+import { COLORS, SIZES } from '@constants/theme';
+import { useTheme } from '@hooks/useTheme';
 
 export interface ShopInputProps extends TextInputProps {
   label?: string;
@@ -17,25 +17,23 @@ export interface ShopInputProps extends TextInputProps {
 }
 
 /**
- * Atom Component: ShopInput
- * Quản lý ô nhập văn bản (controlled), hỗ trợ label và hiển thị đổi viền khi có lỗi
+ * Atom Component: ShopInput (Chương 3 - Sprint 3)
+ * Ô nhập văn bản kế thừa TextInput, hỗ trợ label, báo lỗi và tương thích Dark Mode
  */
 export const ShopInput: React.FC<ShopInputProps> = memo(({
   label,
   error,
   containerStyle,
-  value,
-  onChangeText,
-  placeholder,
+  style,
   ...rest
 }) => {
   const { colors } = useTheme();
 
   return (
-    <View style={[styles.container, containerStyle]}>
+    <View style={[styles.wrap, containerStyle]}>
       {label ? (
         <Typography
-          variant="caption"
+          variant="body2"
           color={error ? colors.error : colors.textLight}
           style={styles.label}
         >
@@ -43,32 +41,23 @@ export const ShopInput: React.FC<ShopInputProps> = memo(({
         </Typography>
       ) : null}
 
-      <View
+      <TextInput
+        placeholderTextColor={colors.textLight || COLORS.textLight}
         style={[
-          styles.inputWrapper,
+          styles.input,
           {
-            backgroundColor: colors.surface,
-            borderColor: error ? colors.error : colors.border,
+            backgroundColor: colors.surface || COLORS.surface,
+            borderColor: error ? colors.error : colors.border || COLORS.border,
+            color: colors.text || COLORS.text,
           },
+          error ? styles.inputError : null,
+          style,
         ]}
-      >
-        <TextInput
-          value={value}
-          onChangeText={onChangeText}
-          placeholder={placeholder}
-          placeholderTextColor={colors.textLight}
-          style={[
-            styles.input,
-            {
-              color: colors.text,
-            },
-          ]}
-          {...rest}
-        />
-      </View>
+        {...rest}
+      />
 
       {error ? (
-        <Typography variant="caption" color={colors.error} style={styles.errorText}>
+        <Typography variant="small" color={colors.error || COLORS.error} style={styles.error}>
           {error}
         </Typography>
       ) : null}
@@ -77,25 +66,24 @@ export const ShopInput: React.FC<ShopInputProps> = memo(({
 });
 
 const styles = StyleSheet.create({
-  container: {
-    marginBottom: SPACING.sm,
+  wrap: {
+    marginBottom: SIZES.padding,
   },
   label: {
-    marginBottom: SPACING.xs,
-    fontWeight: '600',
-  },
-  inputWrapper: {
-    borderWidth: 1.5,
-    borderRadius: BORDER_RADIUS.full,
-    paddingHorizontal: SPACING.md,
-    height: 44,
-    justifyContent: 'center',
+    marginBottom: 6,
+    fontWeight: '500',
   },
   input: {
-    fontSize: 14,
-    paddingVertical: 0,
+    height: 48,
+    borderWidth: 1,
+    borderRadius: SIZES.radius,
+    paddingHorizontal: SIZES.padding,
+    fontSize: SIZES.body1,
   },
-  errorText: {
+  inputError: {
+    borderColor: COLORS.error,
+  },
+  error: {
     marginTop: 4,
   },
 });

@@ -32,7 +32,7 @@ export default function AxiosDemo() {
     try {
       const data = await loadPosts();
       setItems(data);
-    } catch (e) {
+    } catch {
       // Axios nhét chi tiết vào e.response (nếu server có trả lời)
       setError('Không tải được dữ liệu. Kiểm tra mạng hoặc URL.');
     } finally {

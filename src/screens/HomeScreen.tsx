@@ -1,24 +1,27 @@
-import React, { useState, useEffect, useMemo, useCallback, useReducer, memo } from 'react';
+import React, { useState, useMemo, useCallback, useReducer } from 'react';
 import {
   View,
-  Image,
-  FlatList,
-  Pressable,
-  ActivityIndicator,
+  Text,
   StyleSheet,
-  StatusBar,
+  Pressable,
+  TouchableOpacity,
   Modal,
   Alert,
+  Image,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { STUDENT, BANNER_IMAGE_ID, FLASH_SECONDS, VARIANT, examStamp } from '@constants/student';
+import { FlashList } from '@shopify/flash-list';
+import { SIZES } from '@constants/theme';
 import { useTheme } from '@hooks/useTheme';
-import { useCountdown } from '@hooks/useCountdown';
-import { fetchProducts, ProductItem, CategoryId } from '@services/productApi';
-import { SPACING, BORDER_RADIUS } from '@constants/theme';
-import { Typography, ShopInput, ShopButton } from '@components/ui';
+import { useDebounce } from '@hooks/useDebounce';
+import { MOCK_PRODUCTS, Product } from '@data/mockProducts';
+import ProductCard from '@components/ProductCard';
+import ShopButton from '@components/ShopButton';
+import ShopInput from '@components/ui/ShopInput';
+import Typography from '@components/ui/Typography';
 
-// Reducer quản lý số lượng đặt món
+// Reducer cho bộ đếm số lượng đặt món (Chương 3 - Mục 3.3)
 type QuantityAction = { type: 'ADD' } | { type: 'REMOVE' } | { type: 'RESET' };
 
 function quantityReducer(state: number, action: QuantityAction): number {
@@ -26,7 +29,7 @@ function quantityReducer(state: number, action: QuantityAction): number {
     case 'ADD':
       return state + 1;
     case 'REMOVE':
-      return state > 1 ? state - 1 : 1;
+      return Math.max(1, state - 1);
     case 'RESET':
       return 1;
     default:
@@ -34,442 +37,309 @@ function quantityReducer(state: number, action: QuantityAction): number {
   }
 }
 
-// Danh mục sản phẩm
-const CHIPS_DEFAULT: { id: CategoryId; label: string }[] = [
-  { id: 'all', label: 'Tất cả' },
-  { id: 'food', label: 'Đồ ăn' },
-  { id: 'drink', label: 'Nước' },
-  { id: 'study', label: 'Học tập' },
-];
+const CATEGORIES = ['Tất cả', 'Âm thanh', 'Gaming', 'Phụ kiện', 'Gia dụng', 'Mạng'];
 
-const CHIPS_REVERSED: { id: CategoryId; label: string }[] = [
-  { id: 'study', label: 'Học tập' },
-  { id: 'drink', label: 'Nước' },
-  { id: 'food', label: 'Đồ ăn' },
-  { id: 'all', label: 'Tất cả' },
-];
-
-// Khối dòng tên thí sinh (Watermark)
-const StudentWatermark = memo(() => {
-  const { colors } = useTheme();
-  return (
-    <View style={[styles.watermarkBar, { backgroundColor: colors.background, borderTopColor: colors.border, borderBottomColor: colors.border }]}>
-      <Typography variant="caption" color={colors.textLight} style={styles.watermarkText}>
-        TH1 · {STUDENT.mssv} · {STUDENT.hoTen} · #{examStamp()}
-      </Typography>
-    </View>
-  );
-});
-
-// Component Thẻ món ăn 1 cột dọc (ProductCard)
-// Bấm vào nút Đặt hoặc bấm cả dòng card đều mở Modal Đặt món
-interface ProductCardProps {
-  item: ProductItem;
-  onOrder: (item: ProductItem) => void;
-  disabled?: boolean;
+interface HomeScreenProps {
+  navigation?: {
+    navigate: (screen: string, params?: any) => void;
+  };
 }
 
-const ProductCard = memo(({ item, onOrder, disabled }: ProductCardProps) => {
-  const { colors } = useTheme();
-
-  return (
-    <Pressable
-      onPress={() => onOrder(item)}
-      style={({ pressed }) => [
-        styles.card,
-        { backgroundColor: colors.surface, borderColor: colors.border },
-        pressed && { opacity: 0.9 },
-      ]}
-    >
-      <View style={styles.cardImageContainer}>
-        <Image
-          source={{ uri: item.image }}
-          style={styles.cardImage}
-          resizeMode="contain"
-        />
-      </View>
-
-      <View style={styles.cardInfo}>
-        <Typography variant="bodyBold" numberOfLines={1} style={styles.cardName}>
-          {item.name}
-        </Typography>
-        <Typography variant="price" color={colors.primary} style={styles.cardPrice}>
-          {item.formattedPrice}
-        </Typography>
-        <Typography variant="caption" color={colors.textLight}>
-          {item.categoryName}
-        </Typography>
-      </View>
-
-      <ShopButton
-        title="Đặt"
-        variant="primary"
-        disabled={disabled}
-        onPress={() => onOrder(item)}
-        style={styles.orderBtn}
-      />
-    </Pressable>
-  );
-});
-
-const HomeScreen: React.FC = () => {
+/**
+ * HomeScreen (Chương 4 - Sprint 4)
+ * - FlashList 2 cột với virtualization mượt mà
+ * - Reanimated 3 Fade-in trên từng thẻ sản phẩm ProductCard
+ * - Pull-to-refresh cập nhật danh sách
+ * - Tìm kiếm Debounce & Bộ lọc danh mục
+ * - Dark Mode chuyển đổi tức thì qua ThemeContext
+ * - useReducer quản lý số lượng đặt hàng
+ */
+export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const { colors, isDark, toggleTheme } = useTheme();
-  const { formattedTime, isExpired } = useCountdown(FLASH_SECONDS);
 
-  // States dữ liệu sản phẩm và trạng thái mạng
-  const [products, setProducts] = useState<ProductItem[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  // States danh sách sản phẩm & kéo làm mới
+  const [products, setProducts] = useState<Product[]>(MOCK_PRODUCTS);
   const [refreshing, setRefreshing] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
 
-  // States tìm kiếm và lọc danh mục
+  // States tìm kiếm & danh mục
   const [keyword, setKeyword] = useState<string>('');
-  const [selectedCategory, setSelectedCategory] = useState<CategoryId>(
-    VARIANT.chipsReversed ? 'study' : 'all'
-  );
+  const [selectedCategory, setSelectedCategory] = useState<string>('Tất cả');
+  const debouncedKeyword = useDebounce(keyword, 300);
 
-  // ==========================================
-  // STATES & REDUCER CHO MODAL ĐẶT MÓN (CÂU 3a)
-  // ==========================================
-  const [selectedProduct, setSelectedProduct] = useState<ProductItem | null>(null);
+  // Modal đặt hàng nhanh (sử dụng useReducer)
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [quantity, dispatchQuantity] = useReducer(quantityReducer, 1);
 
-  // Danh sách chip theo biến thể số cuối MSSV
-  const chipList = useMemo(() => {
-    return VARIANT.chipsReversed ? CHIPS_REVERSED : CHIPS_DEFAULT;
+  // Giả lập Pull-to-refresh (Chương 4 - Mục 4.5)
+  const handleRefresh = useCallback(() => {
+    setRefreshing(true);
+    setTimeout(() => {
+      // Đảo ngẫu nhiên danh sách để người dùng thấy rõ dữ liệu được làm mới
+      const shuffled = [...MOCK_PRODUCTS].sort(() => Math.random() - 0.5);
+      setProducts(shuffled);
+      setRefreshing(false);
+    }, 1200);
   }, []);
 
-  // Hàm tải dữ liệu API có cờ alive (Câu 2b)
-  const loadData = useCallback((isPullRefresh = false) => {
-    let isAlive = true;
-    if (isPullRefresh) {
-      setRefreshing(true);
-    } else {
-      setLoading(true);
-    }
-    setError(null);
-
-    fetchProducts()
-      .then(data => {
-        if (isAlive) {
-          setProducts(data);
-          setLoading(false);
-          setRefreshing(false);
-        }
-      })
-      .catch(err => {
-        if (isAlive) {
-          setError(err.message || 'Không tải được dữ liệu món.');
-          setLoading(false);
-          setRefreshing(false);
-        }
-      });
-
-    return () => {
-      isAlive = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    const cleanup = loadData(false);
-    return cleanup;
-  }, [loadData]);
-
-  const handlePullRefresh = useCallback(() => {
-    loadData(true);
-  }, [loadData]);
-
-  // Lọc sản phẩm theo từ khóa và danh mục (useMemo)
+  // Lọc sản phẩm theo từ khóa (debounced) và danh mục
   const filteredProducts = useMemo(() => {
     return products.filter(item => {
-      const matchKeyword = item.name.toLowerCase().includes(keyword.trim().toLowerCase());
-      const matchCat = selectedCategory === 'all' || item.category === selectedCategory;
+      const matchKeyword =
+        !debouncedKeyword.trim() ||
+        item.name.toLowerCase().includes(debouncedKeyword.trim().toLowerCase());
+      const matchCat =
+        selectedCategory === 'Tất cả' || item.category === selectedCategory;
       return matchKeyword && matchCat;
     });
-  }, [products, keyword, selectedCategory]);
+  }, [products, debouncedKeyword, selectedCategory]);
 
-  // Xử lý mở Modal khi bấm Đặt (Câu 3a)
-  const handleOpenOrderModal = useCallback((item: ProductItem) => {
-    setSelectedProduct(item);
-    dispatchQuantity({ type: 'RESET' }); // Đảm bảo mở lên số lượng luôn là 1
-  }, []);
+  // Điều hướng đến chi tiết sản phẩm
+  const handleOpenDetail = useCallback(
+    (product: Product) => {
+      if (navigation && navigation.navigate) {
+        navigation.navigate('ProductDetail', { productId: product.id });
+      } else {
+        setSelectedProduct(product);
+      }
+    },
+    [navigation],
+  );
 
-  // Xử lý đóng Modal không Alert
-  const handleCloseModal = useCallback(() => {
-    setSelectedProduct(null);
+  // Mở modal đặt hàng
+  const handleOpenOrder = useCallback((product: Product) => {
+    setSelectedProduct(product);
     dispatchQuantity({ type: 'RESET' });
   }, []);
 
-  // Xử lý Xác nhận đặt món (Bật Alert hệ thống theo đúng đề bài)
-  const handleConfirmOrder = useCallback(() => {
+  // Xác nhận đặt hàng trong modal
+  const handleConfirmOrder = () => {
     if (!selectedProduct) return;
+    const total = new Intl.NumberFormat('vi-VN', {
+      style: 'currency',
+      currency: 'VND',
+    }).format(selectedProduct.price * quantity);
 
     Alert.alert(
-      `CampusMart · ${STUDENT.mssv}`,
-      `${STUDENT.hoTen} (#${examStamp()}) đã ghi nhận: ${selectedProduct.name} × ${quantity}. Nhận tại quầy KTX.`,
-      [
-        {
-          text: 'OK',
-          onPress: () => {
-            setSelectedProduct(null);
-            dispatchQuantity({ type: 'RESET' });
-          },
-        },
-      ],
+      'Đặt hàng thành công!',
+      `Đơn hàng: ${selectedProduct.name}\nSố lượng: ${quantity}\nTổng tiền: ${total}`,
+      [{ text: 'Hoàn tất', onPress: () => setSelectedProduct(null) }],
     );
-  }, [selectedProduct, quantity]);
+  };
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={['top', 'left', 'right', 'bottom']}>
-      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
-
-      {/* (0) Watermark ở trên ĐẦU nếu số cuối chẵn */}
-      {VARIANT.watermarkAtTop && <StudentWatermark />}
-
-      {/* Khối (A): Header ứng dụng CAMPUSMART chuẩn màu Teal (#0F766E) */}
-      <View style={[styles.header, { backgroundColor: colors.primary }]}>
-        <View style={styles.headerTop}>
-          <View>
-            <Typography variant="h1" color="#FFFFFF" style={styles.headerTitle}>
-              CAMPUSMART
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={['top', 'left', 'right']}>
+      {/* Main Top Header */}
+      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+        <View>
+          <View style={styles.brandRow}>
+            <Typography variant="h1" color={colors.primary} style={styles.brandText}>
+              ShopAI
             </Typography>
-            <Typography variant="caption" color="#CCFBF1">
-              Tiện lợi KTX
-            </Typography>
-          </View>
-
-          <View style={styles.headerRight}>
-            {/* Nút Sáng/Tối theo biến thể Pressable viền trắng */}
-            <Pressable
-              onPress={toggleTheme}
-              style={({ pressed }) => [
-                styles.themeBtn,
-                pressed && { opacity: 0.7 },
-              ]}
-            >
-              <Typography variant="caption" color="#FFFFFF" style={{ fontWeight: '700' }}>
-                {isDark ? 'Sáng / Tối ☀️' : 'Sáng / Tối 🌙'}
-              </Typography>
-            </Pressable>
-
-            {/* Đồng hồ Flash Sale màu vàng */}
-            <View style={styles.flashBadge}>
-              <Typography variant="caption" color={colors.secondary} style={styles.flashText}>
-                ⚡ Flash {formattedTime}
-              </Typography>
+            <View style={[styles.badgePill, { backgroundColor: colors.primary }]}>
+              <Text style={styles.badgePillText}>Chương 1-4</Text>
             </View>
           </View>
+          <Typography variant="small" color={colors.textLight}>
+            Thế giới công nghệ & phụ kiện thông minh
+          </Typography>
         </View>
+
+        {/* Nút chuyển Sáng / Tối (ThemeContext - Chương 3) */}
+        <TouchableOpacity
+          onPress={toggleTheme}
+          style={[styles.themeBtn, { backgroundColor: colors.background, borderColor: colors.border }]}
+          accessibilityLabel="Chuyển chế độ sáng tối"
+          accessibilityRole="button"
+        >
+          <Text style={{ fontSize: 16 }}>{isDark ? '☀️' : '🌙'}</Text>
+          <Typography variant="small" style={{ fontWeight: '700', marginLeft: 4 }}>
+            {isDark ? 'Sáng' : 'Tối'}
+          </Typography>
+        </TouchableOpacity>
       </View>
 
-      {/* Khối (B): Ô tìm kiếm Controlled */}
+      {/* Search Input Bar (useDebounce - Chương 4 Mục 4.6) */}
       <View style={styles.searchContainer}>
         <ShopInput
+          placeholder="Tìm theo tên sản phẩm (VD: Tai nghe, Bàn phím...)"
           value={keyword}
           onChangeText={setKeyword}
-          placeholder={`Tìm món, nước, đồ dùng — ${STUDENT.mssv}`}
-          autoCapitalize="none"
+          containerStyle={{ marginBottom: 0 }}
         />
       </View>
 
-      {/* Khối (C): Banner ảnh picsum theo BANNER_IMAGE_ID */}
-      <View style={styles.bannerContainer}>
-        <Image
-          source={{ uri: `https://picsum.photos/id/${BANNER_IMAGE_ID}/800/320` }}
-          style={styles.bannerImage}
-          resizeMode="cover"
-          onError={() => console.log('Lỗi tải ảnh banner')}
-        />
-        <View style={styles.bannerOverlay}>
-          <Typography variant="h2" color="#FFFFFF" style={styles.bannerTitle}>
-            Đặt nhanh · Nhận tại quầy
-          </Typography>
-          <Typography variant="caption" color="#CCFBF1">
-            Cửa hàng tiện lợi ký túc xá 24/7
-          </Typography>
-        </View>
-      </View>
-
-      {/* Khối (D): 4 Chip lọc danh mục */}
-      <View style={styles.chipsContainer}>
-        {chipList.map(chip => {
-          const isSelected = selectedCategory === chip.id;
-          return (
-            <Pressable
-              key={chip.id}
-              onPress={() => setSelectedCategory(chip.id)}
-              style={[
-                styles.chip,
-                {
-                  backgroundColor: isSelected ? colors.primary : colors.surface,
-                  borderColor: colors.primary,
-                },
-              ]}
-            >
-              <Typography
-                variant="caption"
-                color={isSelected ? '#FFFFFF' : colors.primary}
-                style={{ fontWeight: isSelected ? '700' : '600' }}
+      {/* Category Chips Bar */}
+      <View style={styles.categoryBar}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScroll}>
+          {CATEGORIES.map(cat => {
+            const isSelected = selectedCategory === cat;
+            return (
+              <TouchableOpacity
+                key={cat}
+                onPress={() => setSelectedCategory(cat)}
+                style={[
+                  styles.categoryChip,
+                  {
+                    backgroundColor: isSelected ? colors.primary : colors.surface,
+                    borderColor: isSelected ? colors.primary : colors.border,
+                  },
+                ]}
+                activeOpacity={0.7}
               >
-                {chip.label}
-              </Typography>
-            </Pressable>
-          );
-        })}
+                <Typography
+                  variant="small"
+                  color={isSelected ? '#FFFFFF' : colors.text}
+                  style={{ fontWeight: isSelected ? '700' : '500' }}
+                >
+                  {cat}
+                </Typography>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
       </View>
 
-      {/* Trạng thái mạng: Loading / Error / Danh sách */}
-      {loading ? (
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Typography variant="body" color={colors.textLight} style={styles.loadingText}>
-            Đang tải món...
-          </Typography>
-        </View>
-      ) : error ? (
-        <View style={styles.centerContainer}>
-          <Typography variant="bodyBold" color={colors.error} style={styles.errorTitle}>
-            {STUDENT.mssv} — Không tải được dữ liệu món.
-          </Typography>
-          <Typography variant="caption" color={colors.textLight} style={styles.errorSub}>
-            Vui lòng kiểm tra kết nối mạng và thử lại.
-          </Typography>
-          <ShopButton
-            title="Thử lại"
-            variant="primary"
-            onPress={() => loadData(false)}
-            style={styles.retryBtn}
-          />
-        </View>
-      ) : (
-        /* Danh sách sản phẩm 1 cột */
-        <FlatList
+      {/* Product Grid Header */}
+      <View style={styles.listHeaderRow}>
+        <Typography variant="h3" style={{ fontWeight: '800' }}>
+          {selectedCategory === 'Tất cả' ? 'Tất cả sản phẩm' : `Danh mục: ${selectedCategory}`}
+        </Typography>
+        <Typography variant="small" color={colors.textLight}>
+          {filteredProducts.length} sản phẩm
+        </Typography>
+      </View>
+
+      {/* FlashList 2-Column Grid (Chương 4 Sprint 4) */}
+      <View style={styles.listWrapper}>
+        <FlashList
           data={filteredProducts}
-          keyExtractor={item => `${STUDENT.mssv}-${item.id}`}
+          keyExtractor={item => item.id}
           renderItem={({ item }) => (
             <ProductCard
-              item={item}
-              onOrder={handleOpenOrderModal}
-              disabled={isExpired}
+              product={item}
+              onPress={handleOpenDetail}
+              onOrder={handleOpenOrder}
             />
           )}
+          numColumns={2}
           refreshing={refreshing}
-          onRefresh={handlePullRefresh}
+          onRefresh={handleRefresh}
+          contentContainerStyle={{ padding: SIZES.padding / 2, paddingBottom: 32 }}
+          showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Typography variant="body" color={colors.textLight}>
-                Không có món phù hợp
+              <Text style={{ fontSize: 36, marginBottom: 8 }}>🔍</Text>
+              <Typography variant="h3" style={{ textAlign: 'center', marginBottom: 4 }}>
+                Không tìm thấy sản phẩm
+              </Typography>
+              <Typography variant="small" color={colors.textLight} style={{ textAlign: 'center' }}>
+                Thử thay đổi từ khóa hoặc chọn danh mục "Tất cả"
               </Typography>
             </View>
           }
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
         />
-      )}
+      </View>
 
-      {/* Watermark ở chân màn hình */}
-      {!VARIANT.watermarkAtTop && <StudentWatermark />}
-
-      {/* Modal chi tiết đặt món */}
+      {/* Quick Order Modal with useReducer */}
       <Modal
         visible={!!selectedProduct}
-        transparent={true}
-        animationType={VARIANT.modalAnimation}
-        onRequestClose={handleCloseModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSelectedProduct(null)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            
-            {/* Dòng tên thí sinh trong Modal */}
-            <View style={styles.modalWatermark}>
-              <Typography variant="caption" color={colors.primary} style={{ fontWeight: '700' }}>
-                TH1 · {STUDENT.mssv} · {STUDENT.hoTen} · #{examStamp()}
-              </Typography>
-            </View>
-
-            {selectedProduct && (
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setSelectedProduct(null)}
+        >
+          <Pressable
+            style={[styles.modalCard, { backgroundColor: colors.surface }]}
+            onPress={e => e.stopPropagation()}
+          >
+            {selectedProduct ? (
               <>
-                {/* Ảnh món ăn lớn trong Modal */}
-                <View style={styles.modalImageContainer}>
+                <View style={styles.modalHeader}>
+                  <Typography variant="h3" style={{ fontWeight: '700' }}>
+                    Xác nhận đặt mua
+                  </Typography>
+                  <TouchableOpacity onPress={() => setSelectedProduct(null)}>
+                    <Typography variant="body1" color={colors.textLight}>
+                      ✕
+                    </Typography>
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.modalProductInfo}>
                   <Image
                     source={{ uri: selectedProduct.image }}
                     style={styles.modalImage}
-                    resizeMode="contain"
+                    resizeMode="cover"
                   />
-                </View>
-
-                {/* Tên món, Giá tiền, Danh mục, Mô tả 2 dòng */}
-                <Typography variant="h2" color={colors.text} style={styles.modalName} numberOfLines={2}>
-                  {selectedProduct.name}
-                </Typography>
-
-                <Typography variant="price" color={colors.primary} style={styles.modalPrice}>
-                  {(selectedProduct.price * quantity).toLocaleString('vi-VN')} đ
-                </Typography>
-
-                <Typography variant="caption" color={colors.textLight} style={styles.modalCategory}>
-                  Danh mục: {selectedProduct.categoryName}
-                </Typography>
-
-                <Typography variant="caption" color={colors.textLight} numberOfLines={2} style={styles.modalDescription}>
-                  {selectedProduct.description}
-                </Typography>
-
-                {/* BỘ ĐẾM SỐ LƯỢNG SỬ DỤNG useReducer (ADD / REMOVE) */}
-                <View style={styles.counterRow}>
-                  <Pressable
-                    onPress={() => dispatchQuantity({ type: 'REMOVE' })}
-                    style={({ pressed }) => [
-                      styles.counterBtn,
-                      { backgroundColor: colors.background, borderColor: colors.border },
-                      pressed && { opacity: 0.7 },
-                    ]}
-                  >
-                    <Typography variant="h2" color={colors.primary}>
-                      −
+                  <View style={styles.modalInfoText}>
+                    <Typography variant="bodyBold" numberOfLines={2}>
+                      {selectedProduct.name}
                     </Typography>
-                  </Pressable>
-
-                  <View style={styles.quantityBox}>
-                    <Typography variant="h3" color={colors.text}>
-                      {quantity}
+                    <Typography variant="price" color={colors.primary} style={{ marginTop: 6 }}>
+                      {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(
+                        selectedProduct.price,
+                      )}
                     </Typography>
                   </View>
-
-                  <Pressable
-                    onPress={() => dispatchQuantity({ type: 'ADD' })}
-                    style={({ pressed }) => [
-                      styles.counterBtn,
-                      { backgroundColor: colors.primary, borderColor: colors.primary },
-                      pressed && { opacity: 0.7 },
-                    ]}
-                  >
-                    <Typography variant="h2" color="#FFFFFF">
-                      +
-                    </Typography>
-                  </Pressable>
                 </View>
 
-                {/* NÚT XÁC NHẬN ĐẶT HOẶC KHÓA KHI HẾT GIỜ FLASH */}
-                <ShopButton
-                  title={isExpired ? 'Hết giờ flash-sale' : 'Xác nhận đặt'}
-                  variant="primary"
-                  disabled={isExpired}
-                  onPress={handleConfirmOrder}
-                  style={styles.confirmBtn}
-                />
+                {/* Counter with useReducer */}
+                <View style={[styles.modalCounterSection, { borderTopColor: colors.border, borderBottomColor: colors.border }]}>
+                  <Typography variant="body2" style={{ fontWeight: '600' }}>
+                    Chọn số lượng:
+                  </Typography>
+                  <View style={styles.counterRow}>
+                    <TouchableOpacity
+                      onPress={() => dispatchQuantity({ type: 'REMOVE' })}
+                      style={[styles.counterBtn, { backgroundColor: colors.background }]}
+                    >
+                      <Typography variant="h3">−</Typography>
+                    </TouchableOpacity>
+                    <Typography variant="bodyBold" style={styles.counterNumber}>
+                      {quantity}
+                    </Typography>
+                    <TouchableOpacity
+                      onPress={() => dispatchQuantity({ type: 'ADD' })}
+                      style={[styles.counterBtn, { backgroundColor: colors.background }]}
+                    >
+                      <Typography variant="h3">+</Typography>
+                    </TouchableOpacity>
+                  </View>
+                </View>
 
-                {/* NÚT ĐÓNG (Variant Outline - Không bật Alert) */}
-                <ShopButton
-                  title="Đóng"
-                  variant="outline"
-                  onPress={handleCloseModal}
-                  style={styles.closeBtn}
-                />
+                {/* Total */}
+                <View style={styles.modalTotalRow}>
+                  <Typography variant="body2" color={colors.textLight}>
+                    Tổng thanh toán:
+                  </Typography>
+                  <Typography variant="h2" color={colors.primary} style={{ fontWeight: '800' }}>
+                    {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(
+                      selectedProduct.price * quantity,
+                    )}
+                  </Typography>
+                </View>
+
+                <View style={styles.modalActionRow}>
+                  <ShopButton
+                    title="Huỷ"
+                    variant="outline"
+                    onPress={() => setSelectedProduct(null)}
+                    style={{ flex: 1, marginRight: 8 }}
+                  />
+                  <ShopButton
+                    title="Xác nhận"
+                    variant="primary"
+                    onPress={handleConfirmOrder}
+                    style={{ flex: 1.5 }}
+                  />
+                </View>
               </>
-            )}
-          </View>
-        </View>
+            ) : null}
+          </Pressable>
+        </Pressable>
       </Modal>
     </SafeAreaView>
   );
@@ -479,255 +349,145 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
   },
-  watermarkBar: {
-    paddingVertical: 8,
-    paddingHorizontal: SPACING.md,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  watermarkText: {
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-  },
   header: {
-    paddingHorizontal: SPACING.md,
-    paddingTop: SPACING.md,
-    paddingBottom: SPACING.md,
-  },
-  headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingHorizontal: SIZES.padding,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
   },
-  headerTitle: {
-    fontSize: 22,
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  brandText: {
+    fontWeight: '900',
+    letterSpacing: -0.5,
+  },
+  badgePill: {
+    marginLeft: 8,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  badgePillText: {
+    color: '#FFFFFF',
+    fontSize: 10,
     fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-  headerRight: {
-    alignItems: 'flex-end',
-    gap: 6,
   },
   themeBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 5,
-    borderRadius: BORDER_RADIUS.full,
-    borderWidth: 1.5,
-    borderColor: '#FFFFFF',
-  },
-  flashBadge: {
-    marginTop: 2,
-  },
-  flashText: {
-    fontWeight: '800',
-    fontSize: 13,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
   },
   searchContainer: {
-    paddingHorizontal: SPACING.md,
-    paddingTop: SPACING.sm,
+    paddingHorizontal: SIZES.padding,
+    paddingTop: 12,
+    paddingBottom: 4,
   },
-  bannerContainer: {
-    marginHorizontal: SPACING.md,
-    marginBottom: SPACING.sm,
-    height: 120,
-    borderRadius: BORDER_RADIUS.lg,
-    overflow: 'hidden',
-    position: 'relative',
-    backgroundColor: '#0F766E',
+  categoryBar: {
+    marginBottom: 8,
   },
-  bannerImage: {
-    width: '100%',
-    height: '100%',
-    opacity: 0.45,
+  categoryScroll: {
+    paddingHorizontal: SIZES.padding,
+    paddingVertical: 6,
+    gap: 8,
   },
-  bannerOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: SPACING.md,
-  },
-  bannerTitle: {
-    fontWeight: '800',
-    fontSize: 18,
-    marginBottom: 4,
-  },
-  chipsContainer: {
-    flexDirection: 'row',
-    paddingHorizontal: SPACING.md,
-    marginBottom: SPACING.sm,
-    gap: SPACING.xs,
-  },
-  chip: {
-    flex: 1,
-    paddingVertical: 8,
-    borderRadius: BORDER_RADIUS.full,
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  listContent: {
-    paddingBottom: SPACING.xl,
-  },
-  card: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: SPACING.md,
-    marginBottom: SPACING.sm,
-    padding: SPACING.sm + 2,
-    borderRadius: BORDER_RADIUS.lg,
+  categoryChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
     borderWidth: 1,
-    shadowColor: '#0F766E',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
   },
-  cardImageContainer: {
-    width: 68,
-    height: 68,
-    borderRadius: BORDER_RADIUS.md,
-    backgroundColor: '#F0FDFA',
-    justifyContent: 'center',
+  listHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 4,
+    paddingHorizontal: SIZES.padding,
+    paddingVertical: 6,
   },
-  cardImage: {
-    width: '100%',
-    height: '100%',
-  },
-  cardInfo: {
+  listWrapper: {
     flex: 1,
-    marginLeft: SPACING.md,
-    marginRight: SPACING.sm,
-  },
-  cardName: {
-    fontSize: 15,
-    marginBottom: 2,
-  },
-  cardPrice: {
-    fontSize: 15,
-    marginBottom: 2,
-  },
-  orderBtn: {
-    height: 38,
-    paddingHorizontal: 20,
-    borderRadius: BORDER_RADIUS.full,
-  },
-  centerContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: SPACING.lg,
-  },
-  loadingText: {
-    marginTop: SPACING.sm,
-  },
-  errorTitle: {
-    textAlign: 'center',
-    marginBottom: SPACING.xs,
-  },
-  errorSub: {
-    textAlign: 'center',
-    marginBottom: SPACING.md,
-  },
-  retryBtn: {
-    width: 140,
   },
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: SPACING.xxl,
+    paddingVertical: 48,
   },
-  // Styles Modal Đặt món (Giao diện 2)
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: SPACING.md,
+    padding: SIZES.padding,
   },
   modalCard: {
     width: '100%',
-    borderRadius: BORDER_RADIUS.xl,
-    padding: SPACING.lg,
-    borderWidth: 1,
-    alignItems: 'center',
+    borderRadius: SIZES.radius,
+    padding: SIZES.padding,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 6,
   },
-  modalWatermark: {
-    marginBottom: SPACING.sm,
-    paddingBottom: SPACING.xs,
-    borderBottomWidth: 1,
-    borderColor: '#CCFBF1',
-    width: '100%',
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 14,
   },
-  modalImageContainer: {
-    width: 110,
-    height: 110,
-    borderRadius: BORDER_RADIUS.lg,
-    backgroundColor: '#F0FDFA',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: SPACING.sm,
-    marginBottom: SPACING.sm,
+  modalProductInfo: {
+    flexDirection: 'row',
+    marginBottom: 16,
   },
   modalImage: {
-    width: '100%',
-    height: '100%',
+    width: 70,
+    height: 70,
+    borderRadius: 8,
+    backgroundColor: '#EAEAEA',
   },
-  modalName: {
-    textAlign: 'center',
-    marginBottom: 4,
+  modalInfoText: {
+    flex: 1,
+    marginLeft: 12,
+    justifyContent: 'center',
   },
-  modalPrice: {
-    fontSize: 18,
-    marginBottom: 4,
-  },
-  modalCategory: {
-    marginBottom: 4,
-  },
-  modalDescription: {
-    textAlign: 'center',
-    marginBottom: SPACING.md,
-    paddingHorizontal: SPACING.sm,
+  modalCounterSection: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    marginBottom: 14,
   },
   counterRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: SPACING.md,
-    gap: SPACING.md,
   },
   counterBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: BORDER_RADIUS.full,
-    borderWidth: 1.5,
+    width: 36,
+    height: 36,
+    borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  quantityBox: {
-    minWidth: 44,
+  counterNumber: {
+    marginHorizontal: 14,
+    fontSize: 16,
+  },
+  modalTotalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 18,
   },
-  confirmBtn: {
-    width: '100%',
-    marginBottom: SPACING.sm,
-  },
-  closeBtn: {
-    width: '100%',
+  modalActionRow: {
+    flexDirection: 'row',
   },
 });
 

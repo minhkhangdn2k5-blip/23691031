@@ -1,28 +1,29 @@
 import React, { memo } from 'react';
 import {
-  Pressable,
-  ActivityIndicator,
+  TouchableOpacity,
   StyleSheet,
+  ActivityIndicator,
   ViewStyle,
   TextStyle,
 } from 'react-native';
-import { useTheme } from '@hooks/useTheme';
-import { SPACING, BORDER_RADIUS } from '@constants/theme';
 import Typography from './Typography';
+import { COLORS, SIZES } from '@constants/theme';
+import { useTheme } from '@hooks/useTheme';
 
 export interface ShopButtonProps {
   title: string;
   onPress: () => void;
   isLoading?: boolean;
   disabled?: boolean;
-  variant?: 'primary' | 'outline';
+  variant?: 'primary' | 'secondary' | 'outline';
   style?: ViewStyle;
   textStyle?: TextStyle;
+  accessibilityLabel?: string;
 }
 
 /**
- * Atom Component: ShopButton
- * Nút bấm tiêu chuẩn hỗ trợ variant primary/outline, trạng thái loading xoay và khóa nút
+ * Atom Component: ShopButton (Chương 3 - Sprint 3)
+ * Nút bấm chuẩn mực hỗ trợ các biến thể primary, secondary, outline, loading và khóa nút
  */
 export const ShopButton: React.FC<ShopButtonProps> = memo(({
   title,
@@ -32,70 +33,84 @@ export const ShopButton: React.FC<ShopButtonProps> = memo(({
   variant = 'primary',
   style,
   textStyle,
+  accessibilityLabel,
 }) => {
   const { colors } = useTheme();
 
-  const isPrimary = variant === 'primary';
-  const isButtonDisabled = disabled || isLoading;
+  const variantStyles = {
+    primary: {
+      backgroundColor: colors.primary || COLORS.primary,
+      borderColor: colors.primary || COLORS.primary,
+    },
+    secondary: {
+      backgroundColor: colors.secondary || COLORS.secondary,
+      borderColor: colors.secondary || COLORS.secondary,
+    },
+    outline: {
+      backgroundColor: 'transparent',
+      borderWidth: 1.5,
+      borderColor: colors.primary || COLORS.primary,
+    },
+  };
 
-  const backgroundColor = isPrimary
-    ? isButtonDisabled
-      ? '#9CA3AF'
-      : colors.primary
-    : 'transparent';
+  const currentVariantStyle = variantStyles[variant] || variantStyles.primary;
 
-  const borderColor = isPrimary
-    ? isButtonDisabled
-      ? '#9CA3AF'
-      : colors.primary
-    : colors.primary;
-
-  const textColor = isPrimary
-    ? '#FFFFFF'
-    : isButtonDisabled
-    ? '#9CA3AF'
-    : colors.primary;
+  const textColor =
+    variant === 'outline'
+      ? colors.primary || COLORS.primary
+      : '#FFFFFF';
 
   return (
-    <Pressable
-      onPress={onPress}
-      disabled={isButtonDisabled}
-      style={({ pressed }) => [
+    <TouchableOpacity
+      style={[
         styles.button,
-        {
-          backgroundColor,
-          borderColor,
-          borderWidth: 1.5,
-          opacity: pressed ? 0.8 : 1,
-        },
+        currentVariantStyle,
+        disabled && styles.disabledButton,
         style,
       ]}
+      onPress={onPress}
+      disabled={disabled || isLoading}
+      activeOpacity={0.8}
+      accessibilityLabel={accessibilityLabel ?? title}
+      accessibilityRole="button"
     >
       {isLoading ? (
         <ActivityIndicator
           size="small"
-          color={isPrimary ? '#FFFFFF' : colors.primary}
+          color={textColor}
         />
       ) : (
         <Typography
-          variant="bodyBold"
+          variant="body1"
           color={textColor}
-          style={textStyle}
+          style={[{ fontWeight: '600' }, textStyle]}
         >
           {title}
         </Typography>
       )}
-    </Pressable>
+    </TouchableOpacity>
   );
 });
 
 const styles = StyleSheet.create({
   button: {
-    height: 40,
-    borderRadius: BORDER_RADIUS.full,
+    height: 48,
+    borderRadius: SIZES.radius,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: SPACING.md,
+    paddingHorizontal: SIZES.padding,
+    width: '100%',
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  disabledButton: {
+    backgroundColor: '#D1D5DB',
+    borderColor: '#D1D5DB',
+    shadowOpacity: 0,
+    elevation: 0,
   },
 });
 

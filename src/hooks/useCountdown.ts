@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 
 /**
- * Custom Hook useCountdown
- * Đếm ngược thời gian từ FLASH_SECONDS về 0 (tính bằng giây)
- * Định dạng mm:ss, thông báo khi hết giờ (isExpired)
+ * Custom Hook useCountdown (Chương 3 - Sprint 3)
+ * Đếm ngược thời gian từ initialSeconds về 0.
+ * Trả về { timeLeft, isFinished, seconds, formattedTime, isExpired }
  */
 export function useCountdown(initialSeconds: number) {
   const [seconds, setSeconds] = useState<number>(initialSeconds);
@@ -33,12 +33,14 @@ export function useCountdown(initialSeconds: number) {
   const minutes = Math.floor(seconds / 60);
   const remainingSecs = seconds % 60;
   const formattedTime = `${String(minutes).padStart(2, '0')}:${String(remainingSecs).padStart(2, '0')}`;
-  const isExpired = seconds <= 0;
+  const isFinished = seconds <= 0;
 
   return {
+    timeLeft: seconds,
+    isFinished,
     seconds,
     formattedTime,
-    isExpired,
+    isExpired: isFinished,
   };
 }
 

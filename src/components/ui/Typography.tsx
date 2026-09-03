@@ -1,42 +1,42 @@
 import React, { memo } from 'react';
-import { Text, TextProps, TextStyle, StyleSheet } from 'react-native';
-import { FONTS, TypographyVariant } from '@constants/theme';
+import { Text, TextStyle, StyleProp, StyleSheet } from 'react-native';
+import { COLORS, FONTS, TypographyVariant } from '@constants/theme';
 import { useTheme } from '@hooks/useTheme';
 
-export interface TypographyProps extends TextProps {
+export interface TypographyProps {
+  children: React.ReactNode;
   variant?: TypographyVariant;
   color?: string;
-  children: React.ReactNode;
-  style?: TextStyle | TextStyle[];
+  style?: StyleProp<TextStyle>;
+  numberOfLines?: number;
   center?: boolean;
 }
 
 /**
- * Atom Component: Typography
- * Bọc Text chuẩn của React Native, lấy kiểu chữ từ FONTS, hỗ trợ màu sắc và Dark Mode
+ * Atom Component: Typography (Chương 3 - Sprint 3)
+ * Hiển thị chữ chuẩn mực theo hệ thống Design System FONTS
  */
 export const Typography: React.FC<TypographyProps> = memo(({
-  variant = 'body',
-  color,
   children,
+  variant = 'body1',
+  color,
   style,
+  numberOfLines,
   center = false,
-  ...rest
 }) => {
   const { colors } = useTheme();
-
-  const fontStyle = FONTS[variant] || FONTS.body;
-  const textColor = color || colors.text;
+  const fontStyle = FONTS[variant] || FONTS.body1;
+  const textColor = color || colors.text || COLORS.text;
 
   return (
     <Text
+      numberOfLines={numberOfLines}
       style={[
         fontStyle,
         { color: textColor },
         center && styles.center,
         style,
       ]}
-      {...rest}
     >
       {children}
     </Text>
