@@ -1,27 +1,24 @@
-import React, { useState, useMemo, useCallback, useReducer } from 'react';
+import React, { useState, useCallback, useReducer } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  Pressable,
   TouchableOpacity,
+  Pressable,
   Modal,
   Alert,
   Image,
-  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
 import { SIZES } from '@constants/theme';
 import { useTheme } from '@hooks/useTheme';
-import { useDebounce } from '@hooks/useDebounce';
 import { MOCK_PRODUCTS, Product } from '@data/mockProducts';
 import ProductCard from '@components/ProductCard';
 import ShopButton from '@components/ShopButton';
-import ShopInput from '@components/ui/ShopInput';
 import Typography from '@components/ui/Typography';
 
-// Reducer cho bộ đếm số lượng đặt món (Chương 3 - Mục 3.3)
+// Reducer cho bộ đếm số lượng đặt hàng (Chương 3 - Mục 3.3)
 type QuantityAction = { type: 'ADD' } | { type: 'REMOVE' } | { type: 'RESET' };
 
 function quantityReducer(state: number, action: QuantityAction): number {
@@ -37,63 +34,42 @@ function quantityReducer(state: number, action: QuantityAction): number {
   }
 }
 
-const CATEGORIES = ['Tất cả', 'Âm thanh', 'Gaming', 'Phụ kiện', 'Gia dụng', 'Mạng'];
-
 interface HomeScreenProps {
   navigation?: {
+    goBack?: () => void;
     navigate: (screen: string, params?: any) => void;
   };
 }
 
 /**
  * HomeScreen (Chương 4 - Sprint 4)
- * - FlashList 2 cột với virtualization mượt mà
- * - Reanimated 3 Fade-in trên từng thẻ sản phẩm ProductCard
- * - Pull-to-refresh cập nhật danh sách
- * - Tìm kiếm Debounce & Bộ lọc danh mục
- * - Dark Mode chuyển đổi tức thì qua ThemeContext
- * - useReducer quản lý số lượng đặt hàng
+ * - Header chuẩn mực: `< Khám phá`
+ * - Lưới 2 cột FlashList siêu tốc
+ * - Reanimated 3 Fade-in trên từng thẻ sản phẩm
+ * - Kéo vuốt (Pull-to-refresh) mượt mà
+ * - Đổi Dark/Light Mode tức thời
  */
 export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const { colors, isDark, toggleTheme } = useTheme();
 
-  // States danh sách sản phẩm & kéo làm mới
+  // Danh sách sản phẩm công nghệ thực tế
   const [products, setProducts] = useState<Product[]>(MOCK_PRODUCTS);
   const [refreshing, setRefreshing] = useState<boolean>(false);
-
-  // States tìm kiếm & danh mục
-  const [keyword, setKeyword] = useState<string>('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('Tất cả');
-  const debouncedKeyword = useDebounce(keyword, 300);
 
   // Modal đặt hàng nhanh (sử dụng useReducer)
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [quantity, dispatchQuantity] = useReducer(quantityReducer, 1);
 
-  // Giả lập Pull-to-refresh (Chương 4 - Mục 4.5)
+  // Pull-to-refresh: mô phỏng làm mới dữ liệu
   const handleRefresh = useCallback(() => {
     setRefreshing(true);
     setTimeout(() => {
-      // Đảo ngẫu nhiên danh sách để người dùng thấy rõ dữ liệu được làm mới
-      const shuffled = [...MOCK_PRODUCTS].sort(() => Math.random() - 0.5);
-      setProducts(shuffled);
+      setProducts([...MOCK_PRODUCTS].sort(() => Math.random() - 0.5));
       setRefreshing(false);
     }, 1200);
   }, []);
 
-  // Lọc sản phẩm theo từ khóa (debounced) và danh mục
-  const filteredProducts = useMemo(() => {
-    return products.filter(item => {
-      const matchKeyword =
-        !debouncedKeyword.trim() ||
-        item.name.toLowerCase().includes(debouncedKeyword.trim().toLowerCase());
-      const matchCat =
-        selectedCategory === 'Tất cả' || item.category === selectedCategory;
-      return matchKeyword && matchCat;
-    });
-  }, [products, debouncedKeyword, selectedCategory]);
-
-  // Điều hướng đến chi tiết sản phẩm
+  // Chuyển sang màn hình Chi tiết sản phẩm
   const handleOpenDetail = useCallback(
     (product: Product) => {
       if (navigation && navigation.navigate) {
@@ -105,19 +81,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     [navigation],
   );
 
-  // Mở modal đặt hàng
+  // Mở modal đặt mua nhanh
   const handleOpenOrder = useCallback((product: Product) => {
     setSelectedProduct(product);
     dispatchQuantity({ type: 'RESET' });
   }, []);
 
-  // Xác nhận đặt hàng trong modal
+  // Xác nhận đặt hàng
   const handleConfirmOrder = () => {
     if (!selectedProduct) return;
-    const total = new Intl.NumberFormat('vi-VN', {
-      style: 'currency',
-      currency: 'VND',
-    }).format(selectedProduct.price * quantity);
+    const total = `${(selectedProduct.price * quantity).toLocaleString('vi-VN')} đ`;
 
     Alert.alert(
       'Đặt hàng thành công!',
@@ -128,91 +101,38 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={['top', 'left', 'right']}>
-      {/* Main Top Header */}
+      {/* Header AppBar chuẩn phong cách Khám phá */}
       <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-        <View>
-          <View style={styles.brandRow}>
-            <Typography variant="h1" color={colors.primary} style={styles.brandText}>
-              ShopAI
-            </Typography>
-            <View style={[styles.badgePill, { backgroundColor: colors.primary }]}>
-              <Text style={styles.badgePillText}>Chương 1-4</Text>
-            </View>
-          </View>
-          <Typography variant="small" color={colors.textLight}>
-            Thế giới công nghệ & phụ kiện thông minh
-          </Typography>
-        </View>
+        <TouchableOpacity
+          onPress={() => {
+            if (navigation && navigation.goBack) {
+              navigation.goBack();
+            }
+          }}
+          style={styles.backButton}
+          accessibilityLabel="Quay lại"
+        >
+          <Text style={[styles.backIcon, { color: colors.text }]}>‹</Text>
+        </TouchableOpacity>
 
-        {/* Nút chuyển Sáng / Tối (ThemeContext - Chương 3) */}
+        <Text style={[styles.headerTitle, { color: colors.text }]}>
+          Khám phá
+        </Text>
+
+        {/* Nút chuyển Dark/Light Mode */}
         <TouchableOpacity
           onPress={toggleTheme}
-          style={[styles.themeBtn, { backgroundColor: colors.background, borderColor: colors.border }]}
-          accessibilityLabel="Chuyển chế độ sáng tối"
-          accessibilityRole="button"
+          style={[styles.themeBtn, { backgroundColor: colors.background }]}
+          accessibilityLabel="Chuyển chế độ giao diện"
         >
-          <Text style={{ fontSize: 16 }}>{isDark ? '☀️' : '🌙'}</Text>
-          <Typography variant="small" style={{ fontWeight: '700', marginLeft: 4 }}>
-            {isDark ? 'Sáng' : 'Tối'}
-          </Typography>
+          <Text style={styles.themeIcon}>{isDark ? '☀️' : '🌙'}</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Search Input Bar (useDebounce - Chương 4 Mục 4.6) */}
-      <View style={styles.searchContainer}>
-        <ShopInput
-          placeholder="Tìm theo tên sản phẩm (VD: Tai nghe, Bàn phím...)"
-          value={keyword}
-          onChangeText={setKeyword}
-          containerStyle={{ marginBottom: 0 }}
-        />
-      </View>
-
-      {/* Category Chips Bar */}
-      <View style={styles.categoryBar}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScroll}>
-          {CATEGORIES.map(cat => {
-            const isSelected = selectedCategory === cat;
-            return (
-              <TouchableOpacity
-                key={cat}
-                onPress={() => setSelectedCategory(cat)}
-                style={[
-                  styles.categoryChip,
-                  {
-                    backgroundColor: isSelected ? colors.primary : colors.surface,
-                    borderColor: isSelected ? colors.primary : colors.border,
-                  },
-                ]}
-                activeOpacity={0.7}
-              >
-                <Typography
-                  variant="small"
-                  color={isSelected ? '#FFFFFF' : colors.text}
-                  style={{ fontWeight: isSelected ? '700' : '500' }}
-                >
-                  {cat}
-                </Typography>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-      </View>
-
-      {/* Product Grid Header */}
-      <View style={styles.listHeaderRow}>
-        <Typography variant="h3" style={{ fontWeight: '800' }}>
-          {selectedCategory === 'Tất cả' ? 'Tất cả sản phẩm' : `Danh mục: ${selectedCategory}`}
-        </Typography>
-        <Typography variant="small" color={colors.textLight}>
-          {filteredProducts.length} sản phẩm
-        </Typography>
-      </View>
-
-      {/* FlashList 2-Column Grid (Chương 4 Sprint 4) */}
-      <View style={styles.listWrapper}>
+      {/* Lưới 2 cột FlashList */}
+      <View style={styles.listContainer}>
         <FlashList
-          data={filteredProducts}
+          data={products}
           keyExtractor={item => item.id}
           renderItem={({ item }) => (
             <ProductCard
@@ -224,19 +144,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           numColumns={2}
           refreshing={refreshing}
           onRefresh={handleRefresh}
-          contentContainerStyle={{ padding: SIZES.padding / 2, paddingBottom: 32 }}
+          contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Text style={{ fontSize: 36, marginBottom: 8 }}>🔍</Text>
-              <Typography variant="h3" style={{ textAlign: 'center', marginBottom: 4 }}>
-                Không tìm thấy sản phẩm
-              </Typography>
-              <Typography variant="small" color={colors.textLight} style={{ textAlign: 'center' }}>
-                Thử thay đổi từ khóa hoặc chọn danh mục "Tất cả"
-              </Typography>
-            </View>
-          }
         />
       </View>
 
@@ -258,7 +167,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             {selectedProduct ? (
               <>
                 <View style={styles.modalHeader}>
-                  <Typography variant="h3" style={{ fontWeight: '700' }}>
+                  <Typography variant="h3" style={styles.boldText}>
                     Xác nhận đặt mua
                   </Typography>
                   <TouchableOpacity onPress={() => setSelectedProduct(null)}>
@@ -278,17 +187,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                     <Typography variant="bodyBold" numberOfLines={2}>
                       {selectedProduct.name}
                     </Typography>
-                    <Typography variant="price" color={colors.primary} style={{ marginTop: 6 }}>
-                      {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(
-                        selectedProduct.price,
-                      )}
+                    <Typography variant="price" color={colors.primary} style={styles.modalPrice}>
+                      {`${selectedProduct.price.toLocaleString('vi-VN')} đ`}
                     </Typography>
                   </View>
                 </View>
 
-                {/* Counter with useReducer */}
+                {/* Bộ đếm số lượng useReducer */}
                 <View style={[styles.modalCounterSection, { borderTopColor: colors.border, borderBottomColor: colors.border }]}>
-                  <Typography variant="body2" style={{ fontWeight: '600' }}>
+                  <Typography variant="body2" style={styles.semiboldText}>
                     Chọn số lượng:
                   </Typography>
                   <View style={styles.counterRow}>
@@ -310,15 +217,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                   </View>
                 </View>
 
-                {/* Total */}
+                {/* Tổng thanh toán */}
                 <View style={styles.modalTotalRow}>
                   <Typography variant="body2" color={colors.textLight}>
                     Tổng thanh toán:
                   </Typography>
-                  <Typography variant="h2" color={colors.primary} style={{ fontWeight: '800' }}>
-                    {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(
-                      selectedProduct.price * quantity,
-                    )}
+                  <Typography variant="h2" color={colors.primary} style={styles.totalPriceText}>
+                    {`${(selectedProduct.price * quantity).toLocaleString('vi-VN')} đ`}
                   </Typography>
                 </View>
 
@@ -327,13 +232,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                     title="Huỷ"
                     variant="outline"
                     onPress={() => setSelectedProduct(null)}
-                    style={{ flex: 1, marginRight: 8 }}
+                    style={styles.cancelButton}
                   />
                   <ShopButton
                     title="Xác nhận"
                     variant="primary"
                     onPress={handleConfirmOrder}
-                    style={{ flex: 1.5 }}
+                    style={styles.confirmButton}
                   />
                 </View>
               </>
@@ -350,73 +255,44 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
+    height: 52,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: SIZES.padding,
-    paddingVertical: 14,
+    paddingHorizontal: 16,
     borderBottomWidth: 1,
   },
-  brandRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  backButton: {
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
   },
-  brandText: {
-    fontWeight: '900',
-    letterSpacing: -0.5,
+  backIcon: {
+    fontSize: 28,
+    fontWeight: '300',
+    lineHeight: 30,
   },
-  badgePill: {
-    marginLeft: 8,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  badgePillText: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: '800',
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
   },
   themeBtn: {
-    flexDirection: 'row',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 20,
-    borderWidth: 1,
   },
-  searchContainer: {
-    paddingHorizontal: SIZES.padding,
-    paddingTop: 12,
-    paddingBottom: 4,
+  themeIcon: {
+    fontSize: 16,
   },
-  categoryBar: {
-    marginBottom: 8,
-  },
-  categoryScroll: {
-    paddingHorizontal: SIZES.padding,
-    paddingVertical: 6,
-    gap: 8,
-  },
-  categoryChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 20,
-    borderWidth: 1,
-  },
-  listHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: SIZES.padding,
-    paddingVertical: 6,
-  },
-  listWrapper: {
+  listContainer: {
     flex: 1,
   },
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 48,
+  listContent: {
+    padding: 10,
+    paddingBottom: 32,
   },
   modalOverlay: {
     flex: 1,
@@ -441,6 +317,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 14,
   },
+  boldText: {
+    fontWeight: '700',
+  },
+  semiboldText: {
+    fontWeight: '600',
+  },
   modalProductInfo: {
     flexDirection: 'row',
     marginBottom: 16,
@@ -455,6 +337,9 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: 12,
     justifyContent: 'center',
+  },
+  modalPrice: {
+    marginTop: 6,
   },
   modalCounterSection: {
     flexDirection: 'row',
@@ -486,8 +371,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 18,
   },
+  totalPriceText: {
+    fontWeight: '800',
+  },
   modalActionRow: {
     flexDirection: 'row',
+  },
+  cancelButton: {
+    flex: 1,
+    marginRight: 8,
+  },
+  confirmButton: {
+    flex: 1.5,
   },
 });
 

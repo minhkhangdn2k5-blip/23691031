@@ -18,7 +18,7 @@ import { Product } from '@data/mockProducts';
 import { useTheme } from '@hooks/useTheme';
 
 const { width } = Dimensions.get('window');
-const GAP = SIZES.padding;
+const GAP = 12;
 const CARD_WIDTH = (width - GAP * 3) / 2;
 
 export interface ProductCardProps {
@@ -32,7 +32,6 @@ export interface ProductCardProps {
  * - Grid 2 cột chuẩn Flexbox
  * - Hiệu ứng Fade-in trên UI Thread bằng Reanimated 3 Worklet
  * - Tái sử dụng ShopButton từ Sprint 3
- * - Tương thích mượt mà Dark Mode
  */
 export const ProductCard: React.FC<ProductCardProps> = memo(({
   product,
@@ -45,17 +44,15 @@ export const ProductCard: React.FC<ProductCardProps> = memo(({
   const opacity = useSharedValue(0);
 
   useEffect(() => {
-    opacity.value = withTiming(1, { duration: 400 });
+    opacity.value = withTiming(1, { duration: 350 });
   }, [opacity]);
 
   const fadeInStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
   }));
 
-  const formattedPrice = new Intl.NumberFormat('vi-VN', {
-    style: 'currency',
-    currency: 'VND',
-  }).format(product.price);
+  // Định dạng số tiền chuẩn: 850.000 đ
+  const formattedPrice = `${product.price.toLocaleString('vi-VN')} đ`;
 
   return (
     <Animated.View
@@ -70,21 +67,13 @@ export const ProductCard: React.FC<ProductCardProps> = memo(({
     >
       <Pressable
         onPress={() => onPress && onPress(product)}
-        style={({ pressed }) => [{ opacity: pressed ? 0.9 : 1 }]}
+        style={({ pressed }) => [{ opacity: pressed ? 0.92 : 1 }]}
       >
         <Image
           source={{ uri: product.image }}
           style={styles.image}
           resizeMode="cover"
         />
-
-        {product.category ? (
-          <View style={[styles.categoryBadge, { backgroundColor: colors.background }]}>
-            <Text style={[styles.categoryText, { color: colors.textLight }]}>
-              {product.category}
-            </Text>
-          </View>
-        ) : null}
 
         <View style={styles.infoContainer}>
           <Text
@@ -98,18 +87,7 @@ export const ProductCard: React.FC<ProductCardProps> = memo(({
             {formattedPrice}
           </Text>
 
-          <View style={styles.metaRow}>
-            {product.rating ? (
-              <Text style={styles.ratingText}>★ {product.rating}</Text>
-            ) : null}
-            {product.soldCount ? (
-              <Text style={[styles.soldText, { color: colors.textLight }]}>
-                Đã bán {product.soldCount}
-              </Text>
-            ) : null}
-          </View>
-
-          {/* Tái sử dụng ShopButton từ Sprint 3 */}
+          {/* Nút Mua ngay tái sử dụng từ Sprint 3 */}
           <ShopButton
             title="Mua ngay"
             onPress={() => {
@@ -120,7 +98,7 @@ export const ProductCard: React.FC<ProductCardProps> = memo(({
               }
             }}
             style={styles.button}
-            textStyle={{ fontSize: 13, fontWeight: '700' }}
+            textStyle={styles.buttonText}
           />
         </View>
       </Pressable>
@@ -139,59 +117,36 @@ const styles = StyleSheet.create({
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
-    shadowRadius: 5,
-    elevation: 3,
+    shadowRadius: 4,
+    elevation: 2,
   },
   image: {
     width: '100%',
     height: CARD_WIDTH,
-    backgroundColor: '#EAEAEA',
-  },
-  categoryBadge: {
-    position: 'absolute',
-    top: 8,
-    left: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    opacity: 0.9,
-  },
-  categoryText: {
-    fontSize: 10,
-    fontWeight: '600',
+    backgroundColor: '#F0F0F0',
   },
   infoContainer: {
     padding: 10,
   },
   name: {
-    fontSize: SIZES.body2,
-    fontWeight: '600',
-    height: 38,
-    lineHeight: 19,
+    fontSize: 13,
+    fontWeight: '700',
+    height: 36,
+    lineHeight: 18,
   },
   price: {
-    fontSize: SIZES.body1,
+    fontSize: 14,
     fontWeight: '800',
     marginTop: 6,
-    marginBottom: 4,
-  },
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 10,
-  },
-  ratingText: {
-    fontSize: 11,
-    color: '#FA8C16',
-    fontWeight: '600',
-  },
-  soldText: {
-    fontSize: 11,
+    marginBottom: 8,
   },
   button: {
-    height: 36,
+    height: 34,
     borderRadius: 8,
+  },
+  buttonText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
 });
 
