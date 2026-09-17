@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, memo } from 'react';
 import { View, Text, Image, StyleSheet, Dimensions } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -6,8 +6,10 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { COLORS, SIZES } from '@constants/theme';
+import { useTheme } from '@hooks/useTheme';
 import ShopButton from '@components/ShopButton';
-import { Product } from '@data/mockProducts';
+import { Product } from '../types/product.schema';
+import { useCartStore } from '@store/useCartStore';
 
 const { width } = Dimensions.get('window');
 const GAP = 12;
@@ -18,6 +20,8 @@ interface ProductCardProps {
 }
 
 export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
+  const { colors } = useTheme();
+  const addItem = useCartStore((state) => state.addItem);
   const opacity = useSharedValue(0);
 
   useEffect(() => {
@@ -31,22 +35,28 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   });
 
   return (
-    <Animated.View style={[styles.card, fadeInStyle]}>
+    <Animated.View
+      style={[
+        styles.card,
+        fadeInStyle,
+        { backgroundColor: colors.surface, borderColor: colors.border },
+      ]}
+    >
       <Image
         source={{ uri: product.image }}
         style={styles.image}
         resizeMode="cover"
       />
       <View style={styles.infoContainer}>
-        <Text style={styles.name} numberOfLines={2}>
+        <Text style={[styles.name, { color: colors.text }]} numberOfLines={2}>
           {product.name}
         </Text>
-        <Text style={styles.price}>
+        <Text style={[styles.price, { color: colors.primary }]}>
           {`${product.price.toLocaleString('vi-VN')} đ`}
         </Text>
         <ShopButton
           title="Mua ngay"
-          onPress={() => {}}
+          onPress={() => addItem(product)}
           style={styles.button}
           textStyle={styles.buttonText}
         />

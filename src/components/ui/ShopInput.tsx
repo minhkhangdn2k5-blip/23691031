@@ -1,4 +1,4 @@
-import React, { memo } from 'react';
+import React, { forwardRef, ElementRef } from 'react';
 import {
   View,
   TextInput,
@@ -10,6 +10,8 @@ import Typography from './Typography';
 import { COLORS, SIZES } from '@constants/theme';
 import { useTheme } from '@hooks/useTheme';
 
+export type TextInputRef = ElementRef<typeof TextInput>;
+
 export interface ShopInputProps extends TextInputProps {
   label?: string;
   error?: string;
@@ -18,15 +20,15 @@ export interface ShopInputProps extends TextInputProps {
 
 /**
  * Atom Component: ShopInput (Chương 3 - Sprint 3)
- * Ô nhập văn bản kế thừa TextInput, hỗ trợ label, báo lỗi và tương thích Dark Mode
+ * Hỗ trợ forwardRef và cấu hình tối ưu bộ gõ tiếng Việt (Unikey/EVKey) không bị nuốt dấu
  */
-export const ShopInput: React.FC<ShopInputProps> = memo(({
+export const ShopInput = forwardRef<TextInputRef, ShopInputProps>(({
   label,
   error,
   containerStyle,
   style,
   ...rest
-}) => {
+}, ref) => {
   const { colors } = useTheme();
 
   return (
@@ -42,7 +44,11 @@ export const ShopInput: React.FC<ShopInputProps> = memo(({
       ) : null}
 
       <TextInput
+        ref={ref}
         placeholderTextColor={colors.textLight || COLORS.textLight}
+        autoCorrect={false}
+        autoCapitalize="none"
+        spellCheck={false}
         style={[
           styles.input,
           {
@@ -64,6 +70,8 @@ export const ShopInput: React.FC<ShopInputProps> = memo(({
     </View>
   );
 });
+
+ShopInput.displayName = 'ShopInput';
 
 const styles = StyleSheet.create({
   wrap: {
